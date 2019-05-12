@@ -39,6 +39,8 @@ dependencies {
     compile "io.ktor:ktor-freemarker:$ktor_version"
     compile "io.ktor:ktor-server-host-common:$ktor_version"
     compile "io.ktor:ktor-auth:$ktor_version"
+    compile 'org.postgresql:postgresql:42.2.0'
+    compile 'org.mindrot:jbcrypt:0.3m'
     compile "com.h2database:h2:1.3.148"
     compile "org.jetbrains.exposed:exposed:0.6.3"
     compile 'com.zaxxer:HikariCP:2.7.8'

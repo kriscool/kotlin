@@ -1,10 +1,13 @@
 package com.example
 
+import com.example.com.example.WidgetModel
+import com.example.dao.Events
+import com.example.dao.Users
+import com.example.service.UserService
 import com.zaxxer.hikari.HikariConfig
 import com.zaxxer.hikari.HikariDataSource
 import io.ktor.application.*
 import io.ktor.response.*
-import io.ktor.request.*
 import io.ktor.routing.*
 import io.ktor.http.*
 import io.ktor.html.*
@@ -15,13 +18,16 @@ import io.ktor.freemarker.*
 import io.ktor.features.*
 import io.ktor.auth.*
 import io.ktor.sessions.*
-import org.jetbrains.exposed.sql.Database
-import org.jetbrains.exposed.sql.Table
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.withContext
+import org.jetbrains.exposed.sql.*
+import org.jetbrains.exposed.sql.SchemaUtils.create
 import org.jetbrains.exposed.sql.transactions.transaction
 fun main(args: Array<String>): Unit = io.ktor.server.netty.EngineMain.main(args)
 
-@Suppress("unused") // Referenced in application.conf
-@kotlin.jvm.JvmOverloads
+//@Suppress("unused") // Referenced in application.conf
+//@kotlin.jvm.JvmOverloads
 fun Application.module(testing: Boolean = false) {
     install(FreeMarker) {
         templateLoader = ClassTemplateLoader(this::class.java.classLoader, "templates")
@@ -41,15 +47,18 @@ fun Application.module(testing: Boolean = false) {
     }
     Database.connect(hikari())
     transaction {
-       create(Widgets)
+        create(Events)
+        create(Users)
+        UserService().registerUser("USER", "USER", "USER")
     }
+
     routing {
         get("/") {
             val session = call.sessions.get<MySession>()
             if (session != null) {
-                call.respondText("User is logged")
+                call.respond(FreeMarkerContent("index.ftl", mapOf("log" to 1), ""))
             } else {
-                call.respond(FreeMarkerContent("index.ftl", mapOf("data" to IndexData(listOf(1, 2, 3))), ""))
+                call.respond(FreeMarkerContent("index.ftl", mapOf("log" to 0), "e"))
             }
         }
         route("/login") {
@@ -63,6 +72,14 @@ fun Application.module(testing: Boolean = false) {
                     call.respondRedirect("/", permanent = false)
                 }
             }
+        }
+        get("/users"){
+            val user = UserService().getUserFromName("USER")
+            call.respond(FreeMarkerContent("users.ftl", mapOf("wid" to user!!.password), "e"))
+        }
+        get("/logout") {
+                call.sessions.clear<MySession>()
+                call.respondRedirect("/", permanent = false)
         }
 
         get("/html-dsl") {
@@ -108,13 +125,24 @@ fun Application.module(testing: Boolean = false) {
     }
 }
 
+fun getWidgets(id: Int): WidgetModel{
+
+    return transaction {
+        Widgets.select {
+            (Widgets.id eq id)
+        }.map { WidgetModel(it[Widgets.id],it[Widgets.name],it[Widgets.quantity],it[Widgets.dateCreated]) }
+            .first()
+    }
+}
+
 private fun hikari(): HikariDataSource {
     val config = HikariConfig()
-    config.driverClassName = "org.h2.Driver"
-    config.jdbcUrl = "jdbc:h2:mem:test"
+    config.driverClassName = "org.postgresql.ds.PGSimpleDataSource"
+    config.jdbcUrl = "jdbc:postgresql://localhost:5432/kotlin"
+    config.username="postgres"
+    config.password="postgres"
     config.maximumPoolSize = 3
     config.isAutoCommit = false
-    config.transactionIsolation = "TRANSACTION_REPEATABLE_READ"
     config.validate()
     return HikariDataSource(config)
 }

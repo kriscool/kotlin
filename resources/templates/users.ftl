@@ -25,7 +25,7 @@
                         <a class="nav-link js-scroll-trigger" style="color:white;" href="/login">About</a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link js-scroll-trigger" style="color:white;" href="/users">Users</a>
+                        <a class="nav-link js-scroll-trigger" style="color:white;" href="#services">Services</a>
                     </li>
                     <li class="nav-item">
                         <a class="nav-link js-scroll-trigger" style="color:white;" href="#portfolio">Portfolio</a>
