@@ -1,174 +1,209 @@
 package com.example
 
-import com.example.com.example.WidgetModel
+import com.example.com.example.dao.CarUsers
+import com.example.com.example.dao.Cars
 import com.example.dao.Events
 import com.example.dao.Users
+import com.example.model.User
+import com.example.service.EventService
 import com.example.service.UserService
 import com.zaxxer.hikari.HikariConfig
 import com.zaxxer.hikari.HikariDataSource
 import io.ktor.application.*
 import io.ktor.response.*
+import io.ktor.request.*
 import io.ktor.routing.*
 import io.ktor.http.*
-import io.ktor.html.*
-import kotlinx.html.*
-import kotlinx.css.*
 import freemarker.cache.*
 import io.ktor.freemarker.*
-import io.ktor.features.*
 import io.ktor.auth.*
-import io.ktor.sessions.*
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.async
-import kotlinx.coroutines.withContext
-import org.jetbrains.exposed.sql.*
+import io.ktor.features.StatusPages
+import org.jetbrains.exposed.sql.Database
 import org.jetbrains.exposed.sql.SchemaUtils.create
 import org.jetbrains.exposed.sql.transactions.transaction
+import org.mindrot.jbcrypt.BCrypt
+import java.lang.Exception
+
+//import io.ktor.client.features.auth.basic.*
+
 fun main(args: Array<String>): Unit = io.ktor.server.netty.EngineMain.main(args)
 
 //@Suppress("unused") // Referenced in application.conf
 //@kotlin.jvm.JvmOverloads
-fun Application.module(testing: Boolean = false) {
+fun Application.module() {
     install(FreeMarker) {
         templateLoader = ClassTemplateLoader(this::class.java.classLoader, "templates")
     }
 
-    install(Sessions) {
-        cookie<MySession>("SESSION")
+    install(StatusPages) {
+        status(
+            HttpStatusCode.InternalServerError,
+            HttpStatusCode.NotFound
+        ) {
+            call.respond(FreeMarkerContent("error.ftl",  mapOf("error" to ""), ""))
+        }
     }
 
     install(Authentication) {
-        form("login") {
-            userParamName = "username"
-            passwordParamName = "password"
-            challenge = FormAuthChallenge.Unauthorized
-            validate { credentials -> if (credentials.name  == "char" ) UserIdPrincipal(credentials.name) else null }
+        basic("auth") {
+            validate { if (UserService().loginUser(it.name, it.password)) UserIdPrincipal(it.name) else null }
         }
     }
-    Database.connect(hikari())
+
+    initDataBase()
+
+    routing {
+        //main page
+        get("/") {
+            call.respond(FreeMarkerContent("index.ftl", mapOf("log" to 1), ""))
+        }
+
+        //register
+        route("/register") {
+            get {
+                call.respond(FreeMarkerContent("register.ftl", mapOf("error" to ""), ""))
+            }
+
+            post {
+                var params = call.receiveParameters()
+                var name: String = params["name"].toString()
+                var pass = params["password"].toString()
+                var pass2 = params["password2"].toString()
+                var address = params["email"].toString()
+                var error: String
+
+                if (name.length > 4) {
+                    when (Validator().validate(pass, pass2)) {
+                        ErrorsRegister.PASS_TOO_SHORT -> error = "Password is too short"
+                        ErrorsRegister.NO_CAPITAL_LETTER -> error = "The password must have one capital letter"
+                        ErrorsRegister.NO_SPECIAL_SIGN -> error = "The password must have one special sign"
+                        ErrorsRegister.PASSWORD_NOT_MATCH -> error = "Passwords didn't match"
+                        ErrorsRegister.OK -> {
+                            error = "User registered!"
+                            try {
+                                UserService().registerUser(name, pass, address)
+                            } catch (e: Exception) {
+                                if (e.message!!.contains("users_name_unique"))
+                                    error = "User already taken"
+                            }
+                        }
+                    }
+                } else error = "Login should have 5 letters at least"
+
+                call.respond(FreeMarkerContent("register.ftl", mapOf("error" to error), ""))
+            }
+        }
+
+        authenticate("auth") {
+            get("/protected") {
+                val principal = call.principal<UserIdPrincipal>()!!
+                call.respond(FreeMarkerContent("indexLogged.ftl", mapOf("user" to UserService().getUserFromName(principal.name)), ""))
+            }
+            get("/protected/details") {
+                val u = UserService().getUserFromName(call.principal<UserIdPrincipal>()!!.name)
+                call.respond(
+                    FreeMarkerContent(
+                        "userDetails.ftl",
+                        mapOf("error" to "", "login" to u!!.name, "address" to u!!.address),
+                        ""
+                    )
+                )
+            }
+            post("/protected/details") {
+                val params = call.receiveParameters()
+                val pass: String = params["password"].toString()
+                val pass2: String = params["password2"].toString()
+                val address: String = params["email"].toString()
+                val oldPass: String = params["oldPassword"].toString()
+                val user = UserService().getUserFromName(call.principal<UserIdPrincipal>()!!.name)
+                var error: String = ""
+                try {
+                    if (BCrypt.checkpw(oldPass, user!!.password)) {
+                        if (address.isNotEmpty() && pass.isNotEmpty()) {
+                            error = when (Validator().validate(pass, pass2)) {
+                                ErrorsRegister.PASS_TOO_SHORT -> "Password is too short"
+                                ErrorsRegister.NO_CAPITAL_LETTER -> "The password must have one capital letter"
+                                ErrorsRegister.NO_SPECIAL_SIGN -> "The password must have one special sign"
+                                ErrorsRegister.PASSWORD_NOT_MATCH -> "Passwords didn't match"
+                                ErrorsRegister.OK -> {
+                                    val temp: User =
+                                        User(user.id, user.name, BCrypt.hashpw(pass, BCrypt.gensalt()), address, user.event)
+                                    UserService().updateUser(temp)
+                                    "User updated!"
+                                }
+                            }
+                        } else if (address.isNotEmpty() && !pass.isNotEmpty()) {
+                            val temp: User = User(user.id, user.name, user.password, address, user.event)
+                            UserService().updateUser(temp)
+                            error = "User updated!"
+                        } else if (!address.isNotEmpty() && pass.isNotEmpty()) {
+                            error = when (Validator().validate(pass, pass2)) {
+                                ErrorsRegister.PASS_TOO_SHORT -> "Password is too short"
+                                ErrorsRegister.NO_CAPITAL_LETTER -> "The password must have one capital letter"
+                                ErrorsRegister.NO_SPECIAL_SIGN -> "The password must have one special sign"
+                                ErrorsRegister.PASSWORD_NOT_MATCH -> "Passwords didn't match"
+                                ErrorsRegister.OK -> {
+                                    val temp: User =
+                                        User(user.id, user.name, BCrypt.hashpw(pass, BCrypt.gensalt()), user.address, user.event)
+                                    UserService().updateUser(temp)
+                                    "User updated!"
+                                }
+                            }
+                        }
+                    } else error = "Wrong password"
+                } catch (e: Exception) {
+                    error = "Something go wrong"
+                }
+                val newU = UserService().getUserFromName(call.principal<UserIdPrincipal>()!!.name)
+
+                call.respond(
+                    FreeMarkerContent(
+                        "userDetails.ftl",
+                        mapOf("error" to error, "login" to newU!!.name, "address" to newU!!.address),
+                        ""
+                    )
+                )
+            }
+            get("/protected/events") {
+                call.respond(FreeMarkerContent("eventList.ftl", mapOf("events" to EventService().getAllEvents()), ""))
+            }
+            get("/protected/events/{id}") {
+                call.respond(
+                    FreeMarkerContent(
+                        "eventDetails.ftl",""
+                      //  mapOf("item" to EventService().getEvent(call.parameters["id"]!!.toInt())), ""
+                    )
+                )
+            }
+            get("/protected/events/{id}/register"){
+                var user: User = UserService().getUserFromName(call.principal<UserIdPrincipal>()!!.name)!!
+                //user.event = EventService().getEvent(call.parameters["id"]!!.toInt())!!
+                UserService().updateUser(user)
+                call.respond(FreeMarkerContent("indexLogged.ftl", mapOf("user" to UserService().getUserFromName(user.name)), ""))
+            }
+            get("/protected/events/{id}/unsubscribe"){
+                var user: User = UserService().getUserFromName(call.principal<UserIdPrincipal>()!!.name)!!
+                user.event = null
+                UserService().updateUser(user)
+                call.respond(FreeMarkerContent("indexLogged.ftl", mapOf("user" to UserService().getUserFromName(user.name)), ""))
+            }
+        }
+    }
+}
+
+
+fun initDataBase() {
+    val hikariConfig = HikariConfig("/hikari.properties")
+    val hikariDataSource = HikariDataSource(hikariConfig)
+    Database.connect(hikariDataSource)
     transaction {
         create(Events)
         create(Users)
-        UserService().registerUser("USER", "USER", "USER")
+        create(Cars)
+        create(CarUsers)
     }
-
-    routing {
-        get("/") {
-            val session = call.sessions.get<MySession>()
-            if (session != null) {
-                call.respond(FreeMarkerContent("index.ftl", mapOf("log" to 1), ""))
-            } else {
-                call.respond(FreeMarkerContent("index.ftl", mapOf("log" to 0), "e"))
-            }
-        }
-        route("/login") {
-            get {
-                call.respond(FreeMarkerContent("login.ftl", null))
-            }
-            authenticate("login") {
-                post {
-                    val principal = call.principal<UserIdPrincipal>()
-                    call.sessions.set(MySession(principal!!.name))
-                    call.respondRedirect("/", permanent = false)
-                }
-            }
-        }
-        get("/users"){
-            val user = UserService().getUserFromName("USER")
-            call.respond(FreeMarkerContent("users.ftl", mapOf("wid" to user!!.password), "e"))
-        }
-        get("/logout") {
-                call.sessions.clear<MySession>()
-                call.respondRedirect("/", permanent = false)
-        }
-
-        get("/html-dsl") {
-            call.respondHtml {
-                body {
-                    h1 { +"HTML" }
-                    ul {
-                        for (n in 1..10) {
-                            li { +"$n" }
-                        }
-                    }
-                }
-            }
-        }
-
-        get("/styles.css") {
-            call.respondCss {
-                body {
-                    backgroundColor = Color.red
-                }
-                p {
-                    fontSize = 2.em
-                }
-                rule("p.myclass") {
-                    color = Color.blue
-                }
-            }
-        }
-
-        get("/html-freemarker") {
-            call.respond(FreeMarkerContent("index.ftl", mapOf("data" to IndexData(listOf(1, 2, 3))), ""))
-        }
-
-        install(StatusPages) {
-            exception<AuthenticationException> { cause ->
-                call.respond(HttpStatusCode.Unauthorized)
-            }
-            exception<AuthorizationException> { cause ->
-                call.respond(HttpStatusCode.Forbidden)
-            }
-
-        }
-    }
-}
-
-fun getWidgets(id: Int): WidgetModel{
-
-    return transaction {
-        Widgets.select {
-            (Widgets.id eq id)
-        }.map { WidgetModel(it[Widgets.id],it[Widgets.name],it[Widgets.quantity],it[Widgets.dateCreated]) }
-            .first()
-    }
-}
-
-private fun hikari(): HikariDataSource {
-    val config = HikariConfig()
-    config.driverClassName = "org.postgresql.ds.PGSimpleDataSource"
-    config.jdbcUrl = "jdbc:postgresql://localhost:5432/kotlin"
-    config.username="postgres"
-    config.password="postgres"
-    config.maximumPoolSize = 3
-    config.isAutoCommit = false
-    config.validate()
-    return HikariDataSource(config)
-}
-
-object Widgets : Table() {
-    val id = integer("id").primaryKey().autoIncrement()
-    val name = varchar("name", 255)
-    val quantity = integer("quantity")
-    val dateCreated = long("dateCreated")
 }
 
 data class IndexData(val items: List<Int>)
-data class MySession(val username: String)
-class AuthenticationException : RuntimeException()
-class AuthorizationException : RuntimeException()
 
-fun FlowOrMetaDataContent.styleCss(builder: CSSBuilder.() -> Unit) {
-    style(type = ContentType.Text.CSS.toString()) {
-        +CSSBuilder().apply(builder).toString()
-    }
-}
 
-fun CommonAttributeGroupFacade.style(builder: CSSBuilder.() -> Unit) {
-    this.style = CSSBuilder().apply(builder).toString().trim()
-}
-
-suspend inline fun ApplicationCall.respondCss(builder: CSSBuilder.() -> Unit) {
-    this.respondText(CSSBuilder().apply(builder).toString(), ContentType.Text.CSS)
-}

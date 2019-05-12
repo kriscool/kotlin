@@ -17,12 +17,12 @@ class EventService {
         return list
     }
 
-   // fun getEvent(id: Integer?): Event? {
-    //    return transaction {
-   //         Events.select { Events.id eq id }
-   //             .map { Event(it[Events.id], it[Events.name], it[Events.desc], it[Events.date]) }
-   //     }.getOrNull(0)
-   // }
+   /*fun getEvent(id: Int?): Event? {
+        return transaction {
+            Events.select { Events.id eq id }
+                .map { Event(it[Events.id], it[Events.name], it[Events.desc], it[Events.date]) }
+        }.getOrNull(0)
+    }*/
 
 
 }

@@ -12,7 +12,7 @@ import org.mindrot.jbcrypt.BCrypt
 class UserService {
 
     fun registerUser(name: String, pass: String, address: String) {
-       // create(User(0, name, BCrypt.hashpw(pass, BCrypt.gensalt()), address, null))
+        create(User(0, name, BCrypt.hashpw(pass, BCrypt.gensalt()), address, null))
     }
 
     fun getUser(id: Int): User? {
