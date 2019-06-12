@@ -1,4 +1,3 @@
-<#-- @ftlvariable name="data" type="com.example.IndexData" -->
 <html>
 <head>
     <link href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-ggOyR0iXCbMQv3Xipma34MD+dH/1fQ784/j6cY/iJTQUOhcWr7x9JvoRxT2MZw1T" crossorigin="anonymous">
@@ -15,29 +14,35 @@
         <button class="navbar-toggler navbar-toggler-right" type="button" data-toggle="collapse" data-target="#navbarResponsive" aria-controls="navbarResponsive" aria-expanded="false" aria-label="Toggle navigation">
             <span class="navbar-toggler-icon"></span>
         </button>
+        <div class="collapse navbar-collapse" id="navbarResponsive">
+            <ul class="navbar-nav ml-auto my-2 my-lg-0">
+                <li class="nav-item">
+                    <a class="nav-link js-scroll-trigger" style="color:white;" href="/details">Dane</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link js-scroll-trigger" style="color:white;" href="/cars/all">Wszystkie samochody</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link js-scroll-trigger" style="color:white;" href="/my/cars">Moje samochody</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link js-scroll-trigger" style="color:white;" href="/car">Dodaj samochód</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link js-scroll-trigger" style="color:white;" href="/edit">Edytuj samochód</a>
+                </li>
+            </ul>
+        </div>
     </div>
 </nav>
 <header class="masthead">
     <div class="container h-100">
         <div class="row h-100 align-items-center justify-content-center text-center">
-            <div class="col-lg-10 align-self-end">
-                <form action="/register" method="post" >
-                    <p style="color:0000FF;">Nazwa użytkownika:</p>
-                    <input name="name" class="form-control" type="text">
-                    <p style="color:0000FF;">Adres e-mail:</p>
-                    <input name="email" class="form-control" type="text">
-                    <p style="color:0000FF;">Hasło:</p>
-                    <input name="password" class="form-control" type="password">
-                    <input type="submit" class="btn btn-primary" value="Zarejetruj">
-                </form>
-            </div>
-            <div class="col-lg-8 align-self-baseline">
-                <#if error?has_content>
-                    <div class="alert alert-danger" role="alert">
-                        ${error}
-                    </div>
-                </#if>
-            </div>
+            <ul>
+            <#list cars as item>
+                <li><a href="/edit/${item.id}">${item.name}</a></li><br/>
+            </#list>
+            </ul>
         </div>
     </div>
 </header>

@@ -11,65 +11,39 @@ import org.mindrot.jbcrypt.BCrypt
 
 class UserService {
 
-    fun registerUser(name: String, pass: String, address: String) {
-        create(User(0, name, BCrypt.hashpw(pass, BCrypt.gensalt()), address, null))
-    }
-
-    fun getUser(id: Int): User? {
-        return transaction {
-            Users.select { Users.id eq id }
-                .map {
-                    User(
-                        it[Users.id],
-                        it[Users.name],
-                        it[Users.password],
-                        it[Users.address],
-                       null
-                    )
-                }
-        }.getOrNull(0)
-    }
-
-    fun getUserFromName(name: String): User? {
+    fun getUserByName(name: String): User? {
         return transaction {
             Users.select { Users.name eq name }
                 .map {
                     User(
-                        it[Users.id], it[Users.name], it[Users.password], it[Users.address], null
+                        it[Users.id], it[Users.name], it[Users.password], it[Users.address]
                     )
                 }
         }.getOrNull(0)
     }
 
-    private fun create(user: User): User {
+     fun insertUser(user: User): User {
         val userId = transaction {
             Users.insert {
                 it[Users.name] = user.name
                 it[Users.password] = user.password
                 it[Users.address] = user.address
-                it[Users.event] = null
             }.generatedKey
         }
         return user.copy(id = userId!!.toInt())
     }
 
-    fun loginUser(name: String, password: String): Boolean {
-        val temp: User? = getUserFromName(name)
-        if (temp != null) return BCrypt.checkpw(password, temp.password)
-        return false
+    fun checkIfExistsAndLogin(name: String, password: String): Boolean {
+        val user: User? = getUserByName(name)
+        return if (user != null) BCrypt.checkpw(password, user.password)
+        else
+            false
     }
 
     fun updateUser(user: User) {
         transaction {
             Users.update({ Users.id eq user.id }) {
                 it[password] = user.password
-                it[address] = user.address
-                if (user.event == null) {
-                    it[event] = null
-                } else {
-                    it[event] = user.event!!.id
-                }
-
             }
         }
     }

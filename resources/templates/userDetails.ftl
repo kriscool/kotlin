@@ -17,10 +17,19 @@
         <div class="collapse navbar-collapse" id="navbarResponsive">
             <ul class="navbar-nav ml-auto my-2 my-lg-0">
                 <li class="nav-item">
-                    <a class="nav-link js-scroll-trigger" style="color:white;" href="/users">Dane</a>
+                    <a class="nav-link js-scroll-trigger" style="color:white;" href="/details">Dane</a>
                 </li>
                 <li class="nav-item">
-                    <a class="nav-link js-scroll-trigger" style="color:white;" href="#portfolio">Samochody</a>
+                    <a class="nav-link js-scroll-trigger" style="color:white;" href="/cars/all">Wszystkie samochody</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link js-scroll-trigger" style="color:white;" href="/my/cars">Moje samochody</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link js-scroll-trigger" style="color:white;" href="/car">Dodaj samochód</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link js-scroll-trigger" style="color:white;" href="/edit">Edytuj samochód</a>
                 </li>
             </ul>
         </div>
@@ -30,16 +39,15 @@
     <div class="container h-100">
         <div class="row h-100 align-items-center justify-content-center text-center">
             <div class="col-lg-10 align-self-end">
-                <form action="/protected/route/details" method="post">
-                    <p style="color:0000FF;">Adres e-mail:</p>
-                    <input name="email" class="form-control" type="text">
+                <p style="color:0000FF">${adres}</p>
+                <br/>
+                <p style="color:0000FF">${name}</p>
+                <form action="/details" method="post">
                     <p style="color:0000FF;">Hasło:</p>
                     <input name="password" class="form-control" type="password">
-                    <p style="color:0000FF;">Powtórz hasło:</p>
-                    <input name="password2" class="form-control" type="password">
                     <p style="color:0000FF;">Stare hasło:</p>
                     <input name="oldPassword" class="form-control" type="password">
-                    <input type="submit" value="Submit">
+                    <input type="submit" class="btn btn-primary" value="Zapisz zmiany">
                 </form>
             </div>
             <div class="col-lg-8 align-self-baseline">

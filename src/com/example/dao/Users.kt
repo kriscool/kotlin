@@ -7,8 +7,4 @@ object Users: Table(){
     val name = text("name").uniqueIndex()
     val password = text("password")
     val address = text("address")
-    val event = reference("event", Events.id).nullable()
-}
-class User{
-
 }
